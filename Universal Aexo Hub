@@ -1,1 +1,1823 @@
+--// 🩵 AEXO HUB 🩵
+--// LocalScript | StarterPlayer > StarterPlayerScripts
+--// Designed for your own Roblox Studio experience.
+--// Free/Premium keys are client-side checks, NOT secure authentication.
 
+--==================================================
+-- SERVICES
+--==================================================
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+--==================================================
+-- CONFIGURATION
+--==================================================
+
+local FREE_KEY = "A3X0"
+local PREMIUM_KEY = "|--Premium.Aexo--|"
+local DISCORD_INVITE = "https://discord.gg/czgXAV46dQ"
+
+local COLORS = {
+    Background = Color3.fromRGB(12, 17, 29),
+    Panel = Color3.fromRGB(19, 27, 43),
+    PanelLight = Color3.fromRGB(27, 39, 59),
+    Blue = Color3.fromRGB(104, 207, 255),
+    BlueLight = Color3.fromRGB(172, 232, 255),
+    White = Color3.fromRGB(240, 248, 255),
+    Muted = Color3.fromRGB(151, 173, 198),
+    Green = Color3.fromRGB(102, 255, 175),
+    Red = Color3.fromRGB(255, 104, 125),
+}
+
+local HIGHLIGHT_COLORS = {
+    Black = Color3.fromRGB(15, 15, 20),
+    White = Color3.fromRGB(255, 255, 255),
+    Grey = Color3.fromRGB(150, 150, 160),
+    Red = Color3.fromRGB(255, 65, 85),
+    Green = Color3.fromRGB(65, 255, 135),
+    Blue = Color3.fromRGB(65, 145, 255),
+    Yellow = Color3.fromRGB(255, 225, 65),
+}
+
+local settings = {
+    Speed = 16,
+    Jump = 50,
+    JumpBoost = false,
+
+    ConstantChange = false,
+    Sprint = false,
+    Noclip = false,
+    Infjump = false,
+    Spin = false,
+    SpinSpeed = 3,
+    SpinDirection = "Clockwise",
+    AirControl = false,
+    FreezeMovement = false,
+
+    Highlighter = false,
+    HighlighterColor = "Blue",
+    ConstantHighlighter = false,
+
+    ConstantUI = false,
+    MobileButtonSize = 1,
+    MobileButtonPosition = "Right",
+}
+
+local unlocked = false
+local isPremium = false
+local uiLocked = false
+local mainHidden = true
+
+local connections = {}
+local highlights = {}
+local originalCollisions = {}
+local originalMovement = {}
+
+local character
+local humanoid
+local rootPart
+
+local function addConnection(connection)
+    table.insert(connections, connection)
+    return connection
+end
+
+--==================================================
+-- CLEAN UP OLD COPY
+--==================================================
+
+local oldGui = PlayerGui:FindFirstChild("AexoHub")
+if oldGui then
+    oldGui:Destroy()
+end
+
+--==================================================
+-- GUI HELPERS
+--==================================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AexoHub"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = false
+gui.DisplayOrder = 100
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = PlayerGui
+
+local function round(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 10)
+    corner.Parent = instance
+    return corner
+end
+
+local function outline(instance, color, thickness)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or COLORS.Blue
+    stroke.Thickness = thickness or 1
+    stroke.Transparency = 0.35
+    stroke.Parent = instance
+    return stroke
+end
+
+local function make(className, properties, parent)
+    local object = Instance.new(className)
+
+    for property, value in pairs(properties or {}) do
+        object[property] = value
+    end
+
+    object.Parent = parent
+    return object
+end
+
+local function label(parent, text, size, position, fontSize, color)
+    return make("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = text,
+        Size = size,
+        Position = position,
+        Font = Enum.Font.Gotham,
+        TextSize = fontSize or 14,
+        TextColor3 = color or COLORS.White,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        TextWrapped = true,
+    }, parent)
+end
+
+local function button(parent, text, size, position)
+    local b = make("TextButton", {
+        Size = size,
+        Position = position,
+        BackgroundColor3 = COLORS.PanelLight,
+        Text = text,
+        TextColor3 = COLORS.White,
+        TextSize = 14,
+        Font = Enum.Font.GothamSemibold,
+        AutoButtonColor = true,
+        BorderSizePixel = 0,
+    }, parent)
+
+    round(b, 9)
+    return b
+end
+
+local function panel(parent, size, position)
+    local f = make("Frame", {
+        Size = size,
+        Position = position,
+        BackgroundColor3 = COLORS.Panel,
+        BorderSizePixel = 0,
+    }, parent)
+
+    round(f, 12)
+    outline(f, COLORS.Blue, 1)
+    return f
+end
+
+--==================================================
+-- NOTIFICATIONS
+--==================================================
+
+local notification = make("Frame", {
+    Name = "Notification",
+    Size = UDim2.fromOffset(300, 86),
+    Position = UDim2.new(0, -330, 0, 20),
+    BackgroundColor3 = COLORS.Panel,
+    BorderSizePixel = 0,
+    Visible = true,
+    ZIndex = 50,
+}, gui)
+
+round(notification, 12)
+outline(notification, COLORS.Blue, 1.5)
+
+local notificationTitle = label(
+    notification,
+    "🩵  Aexo Hub",
+    UDim2.new(1, -24, 0, 26),
+    UDim2.fromOffset(12, 7),
+    15,
+    COLORS.BlueLight
+)
+notificationTitle.ZIndex = 51
+
+local notificationText = label(
+    notification,
+    "",
+    UDim2.new(1, -24, 1, -38),
+    UDim2.fromOffset(12, 34),
+    13,
+    COLORS.White
+)
+notificationText.TextYAlignment = Enum.TextYAlignment.Top
+notificationText.ZIndex = 51
+
+local notificationNumber = 0
+
+local function notify(message, titleText)
+    notificationNumber += 1
+    local thisNotification = notificationNumber
+
+    notificationTitle.Text = "🩵  " .. (titleText or "Aexo Hub")
+    notificationText.Text = tostring(message)
+
+    notification.Position = UDim2.new(0, -330, 0, 20)
+
+    TweenService:Create(
+        notification,
+        TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+        {Position = UDim2.new(0, 15, 0, 20)}
+    ):Play()
+
+    task.delay(3.2, function()
+        if notificationNumber ~= thisNotification then
+            return
+        end
+
+        TweenService:Create(
+            notification,
+            TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+            {Position = UDim2.new(0, -330, 0, 20)}
+        ):Play()
+    end)
+end
+
+--==================================================
+-- MAIN WINDOW
+--==================================================
+
+local window = make("Frame", {
+    Name = "MainWindow",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.new(0.88, 0, 0.78, 0),
+    BackgroundColor3 = COLORS.Background,
+    BorderSizePixel = 0,
+    Visible = false,
+    ClipsDescendants = true,
+}, gui)
+
+local windowConstraint = make("UISizeConstraint", {
+    MinSize = Vector2.new(310, 360),
+    MaxSize = Vector2.new(720, 560),
+}, window)
+
+round(window, 15)
+outline(window, COLORS.Blue, 1.5)
+
+local topbar = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 52),
+    BackgroundColor3 = COLORS.Panel,
+    BorderSizePixel = 0,
+}, window)
+
+local title = label(
+    topbar,
+    "🩵  aexo Hub",
+    UDim2.new(0.5, -10, 1, 0),
+    UDim2.fromOffset(16, 0),
+    19,
+    COLORS.BlueLight
+)
+title.Font = Enum.Font.GothamBold
+
+local fpsLabel = label(
+    topbar,
+    "FPS: --",
+    UDim2.fromOffset(65, 28),
+    UDim2.new(1, -178, 0, 12),
+    11,
+    COLORS.Muted
+)
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+local pingLabel = label(
+    topbar,
+    "Ping: --",
+    UDim2.fromOffset(65, 28),
+    UDim2.new(1, -110, 0, 12),
+    11,
+    COLORS.Muted
+)
+pingLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+local lockButton = button(
+    topbar,
+    "🔓",
+    UDim2.fromOffset(34, 32),
+    UDim2.new(1, -75, 0, 10)
+)
+lockButton.TextSize = 16
+
+local closeButton = button(
+    topbar,
+    "✕",
+    UDim2.fromOffset(34, 32),
+    UDim2.new(1, -39, 0, 10)
+)
+closeButton.TextColor3 = COLORS.Red
+closeButton.TextSize = 17
+
+local sidebar = make("Frame", {
+    Position = UDim2.fromOffset(0, 52),
+    Size = UDim2.new(0, 130, 1, -52),
+    BackgroundColor3 = COLORS.Panel,
+    BorderSizePixel = 0,
+}, window)
+
+local sidebarPadding = make("UIPadding", {
+    PaddingTop = UDim.new(0, 12),
+    PaddingLeft = UDim.new(0, 8),
+    PaddingRight = UDim.new(0, 8),
+}, sidebar)
+
+local sidebarLayout = make("UIListLayout", {
+    Padding = UDim.new(0, 7),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, sidebar)
+
+local pageHolder = make("Frame", {
+    Position = UDim2.new(0, 140, 0, 62),
+    Size = UDim2.new(1, -150, 1, -72),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, window)
+
+-- Make the UI fit smaller screens.
+local function updateResponsiveLayout()
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local viewport = camera.ViewportSize
+
+    if viewport.X < 520 then
+        sidebar.Size = UDim2.new(0, 94, 1, -52)
+        pageHolder.Position = UDim2.new(0, 102, 0, 62)
+        pageHolder.Size = UDim2.new(1, -112, 1, -72)
+        title.TextSize = 16
+        fpsLabel.Visible = false
+        pingLabel.Visible = false
+    else
+        sidebar.Size = UDim2.new(0, 130, 1, -52)
+        pageHolder.Position = UDim2.new(0, 140, 0, 62)
+        pageHolder.Size = UDim2.new(1, -150, 1, -72)
+        title.TextSize = 19
+        fpsLabel.Visible = true
+        pingLabel.Visible = true
+    end
+end
+
+updateResponsiveLayout()
+
+if workspace.CurrentCamera then
+    addConnection(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(
+        updateResponsiveLayout
+    ))
+end
+
+--==================================================
+-- DRAGGING
+--==================================================
+
+local dragStart
+local startPosition
+local dragging = false
+
+topbar.InputBegan:Connect(function(input)
+    if uiLocked then return end
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = window.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if uiLocked or not dragging then return end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        local delta = input.Position - dragStart
+
+        window.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+lockButton.MouseButton1Click:Connect(function()
+    uiLocked = not uiLocked
+    lockButton.Text = uiLocked and "🔒" or "🔓"
+    notify(uiLocked and "Window dragging locked." or "Window dragging unlocked.")
+end)
+
+--==================================================
+-- FLOATING REOPEN BUTTON
+--==================================================
+
+local floatingButton = button(
+    gui,
+    "🩵",
+    UDim2.fromOffset(54, 54),
+    UDim2.new(0, 18, 0.55, 0)
+)
+
+floatingButton.Name = "FloatingReopenButton"
+floatingButton.Visible = false
+floatingButton.TextSize = 23
+floatingButton.BackgroundColor3 = COLORS.Panel
+floatingButton.ZIndex = 30
+outline(floatingButton, COLORS.Blue, 2)
+
+local floatDragging = false
+local floatMoved = false
+local floatStart
+local floatPosition
+
+floatingButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        floatDragging = true
+        floatMoved = false
+        floatStart = input.Position
+        floatPosition = floatingButton.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if not floatDragging then return end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        local delta = input.Position - floatStart
+
+        if delta.Magnitude > 6 then
+            floatMoved = true
+        end
+
+        if floatMoved then
+            floatingButton.Position = UDim2.new(
+                floatPosition.X.Scale,
+                floatPosition.X.Offset + delta.X,
+                floatPosition.Y.Scale,
+                floatPosition.Y.Offset + delta.Y
+            )
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        floatDragging = false
+    end
+end)
+
+floatingButton.Activated:Connect(function()
+    if floatMoved then return end
+
+    if unlocked then
+        window.Visible = true
+        mainHidden = false
+        floatingButton.Visible = false
+    else
+        -- The key screen is shown below if access has not been unlocked.
+        notify("Enter your key to unlock the hub.")
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    window.Visible = false
+    mainHidden = true
+    floatingButton.Visible = true
+end)
+
+--==================================================
+-- KEY SCREEN
+--==================================================
+
+local keyPage = make("Frame", {
+    Name = "KeyScreen",
+    Size = UDim2.fromScale(1, 1),
+    BackgroundColor3 = COLORS.Background,
+    BorderSizePixel = 0,
+    Visible = true,
+    ZIndex = 10,
+}, gui)
+
+local keyCard = panel(
+    keyPage,
+    UDim2.new(0.88, 0, 0, 310),
+    UDim2.new(0.06, 0, 0.5, -155)
+)
+keyCard.ZIndex = 11
+
+local keyTitle = label(
+    keyCard,
+    "🩵  AEXO HUB",
+    UDim2.new(1, -24, 0, 40),
+    UDim2.fromOffset(12, 18),
+    25,
+    COLORS.BlueLight
+)
+keyTitle.TextXAlignment = Enum.TextXAlignment.Center
+keyTitle.Font = Enum.Font.GothamBold
+keyTitle.ZIndex = 12
+
+local keyDescription = label(
+    keyCard,
+    "Enter your key to unlock the hub.",
+    UDim2.new(1, -24, 0, 30),
+    UDim2.fromOffset(12, 58),
+    13,
+    COLORS.Muted
+)
+keyDescription.TextXAlignment = Enum.TextXAlignment.Center
+keyDescription.ZIndex = 12
+
+local keyBox = make("TextBox", {
+    Size = UDim2.new(1, -32, 0, 42),
+    Position = UDim2.fromOffset(16, 100),
+    BackgroundColor3 = COLORS.PanelLight,
+    PlaceholderText = "Enter key...",
+    PlaceholderColor3 = COLORS.Muted,
+    Text = "",
+    TextColor3 = COLORS.White,
+    Font = Enum.Font.Gotham,
+    TextSize = 14,
+    ClearTextOnFocus = false,
+    BorderSizePixel = 0,
+    ZIndex = 12,
+}, keyCard)
+round(keyBox, 9)
+
+local unlockButton = button(
+    keyCard,
+    "UNLOCK HUB",
+    UDim2.new(1, -32, 0, 42),
+    UDim2.fromOffset(16, 153)
+)
+unlockButton.BackgroundColor3 = COLORS.Blue
+unlockButton.TextColor3 = COLORS.Background
+unlockButton.ZIndex = 12
+
+local discordButton = button(
+    keyCard,
+    "Discord / Get Help",
+    UDim2.new(1, -32, 0, 38),
+    UDim2.fromOffset(16, 205)
+)
+discordButton.ZIndex = 12
+
+local discordBox = make("TextBox", {
+    Size = UDim2.new(1, -32, 0, 28),
+    Position = UDim2.fromOffset(16, 251),
+    BackgroundColor3 = COLORS.PanelLight,
+    Text = DISCORD_INVITE,
+    TextColor3 = COLORS.BlueLight,
+    TextSize = 11,
+    Font = Enum.Font.Gotham,
+    ClearTextOnFocus = false,
+    TextEditable = true,
+    Visible = false,
+    BorderSizePixel = 0,
+    ZIndex = 12,
+}, keyCard)
+round(discordBox, 7)
+
+discordButton.MouseButton1Click:Connect(function()
+    discordBox.Visible = not discordBox.Visible
+
+    if discordBox.Visible then
+        discordBox:CaptureFocus()
+        discordBox.CursorPosition = #discordBox.Text + 1
+        notify("Select the invite text and copy it.")
+    end
+end)
+
+local function unlock(premium)
+    unlocked = true
+    isPremium = premium
+
+    keyPage.Visible = false
+    window.Visible = true
+    mainHidden = false
+    floatingButton.Visible = false
+
+    notify(
+        premium and "Premium access unlocked! ⭐️" or "Free access unlocked!",
+        "Welcome"
+    )
+end
+
+unlockButton.MouseButton1Click:Connect(function()
+    local entered = keyBox.Text
+
+    if entered == FREE_KEY then
+        unlock(false)
+    elseif entered == PREMIUM_KEY then
+        unlock(true)
+    else
+        notify("That key is incorrect. Try again.", "Key Error")
+        keyBox.Text = ""
+    end
+end)
+
+keyBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        unlockButton:Activate()
+    end
+end)
+
+--==================================================
+-- PAGE SYSTEM
+--==================================================
+
+local pages = {}
+local tabButtons = {}
+
+local function createPage(name)
+    local page = make("ScrollingFrame", {
+        Name = name,
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = COLORS.Blue,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollingDirection = Enum.ScrollingDirection.Y,
+        Visible = false,
+    }, pageHolder)
+
+    make("UIPadding", {
+        PaddingTop = UDim.new(0, 5),
+        PaddingBottom = UDim.new(0, 14),
+        PaddingLeft = UDim.new(0, 5),
+        PaddingRight = UDim.new(0, 7),
+    }, page)
+
+    make("UIListLayout", {
+        Padding = UDim.new(0, 9),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, page)
+
+    pages[name] = page
+    return page
+end
+
+local function showPage(name)
+    for pageName, page in pairs(pages) do
+        page.Visible = pageName == name
+    end
+
+    for tabName, tab in pairs(tabButtons) do
+        tab.BackgroundColor3 = tabName == name and COLORS.Blue or COLORS.PanelLight
+        tab.TextColor3 = tabName == name and COLORS.Background or COLORS.White
+    end
+end
+
+local function createTab(name, icon)
+    local tab = button(
+        sidebar,
+        icon .. "  " .. name,
+        UDim2.new(1, 0, 0, 38),
+        UDim2.new()
+    )
+
+    tab.Name = name .. "Tab"
+    tab.TextSize = 12
+    tab.TextXAlignment = Enum.TextXAlignment.Left
+    tab.TextTruncate = Enum.TextTruncate.AtEnd
+
+    make("UIPadding", {
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 4),
+    }, tab)
+
+    tabButtons[name] = tab
+
+    tab.MouseButton1Click:Connect(function()
+        showPage(name)
+    end)
+
+    return tab
+end
+
+local homePage = createPage("Home")
+local movementPage = createPage("Movement")
+local visualsPage = createPage("Visuals")
+local uiPage = createPage("UI Settings")
+local aboutPage = createPage("About")
+
+createTab("Home", "⌂")
+createTab("Movement", "➤")
+createTab("Visuals", "◉")
+createTab("UI Settings", "⚙")
+createTab("About", "?")
+
+--==================================================
+-- CONTROL BUILDERS
+--==================================================
+
+local function section(parent, text)
+    local heading = label(
+        parent,
+        text,
+        UDim2.new(1, 0, 0, 27),
+        UDim2.new(),
+        15,
+        COLORS.BlueLight
+    )
+
+    heading.Font = Enum.Font.GothamBold
+    return heading
+end
+
+local function controlRow(parent, text, height)
+    local row = make("Frame", {
+        Size = UDim2.new(1, 0, 0, height or 46),
+        BackgroundColor3 = COLORS.Panel,
+        BorderSizePixel = 0,
+    }, parent)
+
+    round(row, 9)
+
+    label(
+        row,
+        text,
+        UDim2.new(1, -100, 1, 0),
+        UDim2.fromOffset(12, 0),
+        12,
+        COLORS.White
+    )
+
+    return row
+end
+
+local function premiumNotice()
+    notify("⭐️ This feature requires Premium access.", "Premium Feature")
+end
+
+local function makeToggle(parent, text, initial, callback, premium)
+    local row = controlRow(parent, text, 46)
+
+    local toggle = button(
+        row,
+        initial and "ON" or "OFF",
+        UDim2.fromOffset(66, 30),
+        UDim2.new(1, -76, 0.5, -15)
+    )
+
+    toggle.TextSize = 12
+
+    local state = initial
+
+    local function paint()
+        toggle.Text = state and "ON" or "OFF"
+        toggle.BackgroundColor3 = state and COLORS.Blue or COLORS.PanelLight
+        toggle.TextColor3 = state and COLORS.Background or COLORS.Muted
+    end
+
+    paint()
+
+    toggle.MouseButton1Click:Connect(function()
+        if premium and not isPremium then
+            premiumNotice()
+            return
+        end
+
+        state = not state
+        paint()
+
+        callback(state)
+    end)
+
+    return {
+        Get = function()
+            return state
+        end,
+
+        Set = function(value, fireCallback)
+            state = value
+            paint()
+
+            if fireCallback then
+                callback(state)
+            end
+        end,
+    }
+end
+
+local function makeSlider(parent, text, minimum, maximum, initial, callback, premium)
+    local row = controlRow(parent, text, 65)
+
+    local valueLabel = label(
+        row,
+        tostring(initial),
+        UDim2.fromOffset(45, 24),
+        UDim2.new(1, -55, 0, 3),
+        12,
+        COLORS.BlueLight
+    )
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+    local track = make("Frame", {
+        Size = UDim2.new(1, -24, 0, 7),
+        Position = UDim2.fromOffset(12, 43),
+        BackgroundColor3 = COLORS.PanelLight,
+        BorderSizePixel = 0,
+    }, row)
+    round(track, 6)
+
+    local fill = make("Frame", {
+        Size = UDim2.new((initial - minimum) / (maximum - minimum), 0, 1, 0),
+        BackgroundColor3 = COLORS.Blue,
+        BorderSizePixel = 0,
+    }, track)
+    round(fill, 6)
+
+    local knob = make("Frame", {
+        Size = UDim2.fromOffset(13, 13),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new((initial - minimum) / (maximum - minimum), 0, 0.5, 0),
+        BackgroundColor3 = COLORS.BlueLight,
+        BorderSizePixel = 0,
+    }, track)
+    round(knob, 10)
+
+    local value = initial
+    local sliding = false
+
+    local function setValue(newValue, fireCallback)
+        value = math.clamp(math.floor(newValue + 0.5), minimum, maximum)
+
+        local alpha = (value - minimum) / (maximum - minimum)
+
+        fill.Size = UDim2.new(alpha, 0, 1, 0)
+        knob.Position = UDim2.new(alpha, 0, 0.5, 0)
+        valueLabel.Text = tostring(value)
+
+        if fireCallback then
+            callback(value)
+        end
+    end
+
+    local function updateFromInput(input)
+        local alpha = math.clamp(
+            (input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X,
+            0,
+            1
+        )
+
+        setValue(minimum + alpha * (maximum - minimum), true)
+    end
+
+    track.InputBegan:Connect(function(input)
+        if premium and not isPremium then
+            premiumNotice()
+            return
+        end
+
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            sliding = true
+            updateFromInput(input)
+        end
+    end)
+
+    knob.InputBegan:Connect(function(input)
+        if premium and not isPremium then
+            premiumNotice()
+            return
+        end
+
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            sliding = true
+            updateFromInput(input)
+        end
+    end)
+
+    addConnection(UIS.InputChanged:Connect(function(input)
+        if not sliding then return end
+
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            updateFromInput(input)
+        end
+    end))
+
+    addConnection(UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            sliding = false
+        end
+    end))
+
+    return {
+        Get = function()
+            return value
+        end,
+
+        Set = function(newValue, fireCallback)
+            setValue(newValue, fireCallback)
+        end,
+    }
+end
+
+local function makeSelector(parent, text, options, initial, callback, premium)
+    local row = controlRow(parent, text, 48)
+
+    local currentIndex = table.find(options, initial) or 1
+
+    local choice = button(
+        row,
+        options[currentIndex],
+        UDim2.fromOffset(116, 30),
+        UDim2.new(1, -126, 0.5, -15)
+    )
+
+    choice.TextSize = 11
+
+    local function paint()
+        choice.Text = options[currentIndex]
+    end
+
+    choice.MouseButton1Click:Connect(function()
+        if premium and not isPremium then
+            premiumNotice()
+            return
+        end
+
+        currentIndex = currentIndex % #options + 1
+        paint()
+        callback(options[currentIndex])
+    end)
+
+    paint()
+
+    return {
+        Get = function()
+            return options[currentIndex]
+        end,
+
+        Set = function(value, fireCallback)
+            local index = table.find(options, value)
+
+            if index then
+                currentIndex = index
+                paint()
+
+                if fireCallback then
+                    callback(options[currentIndex])
+                end
+            end
+        end,
+    }
+end
+
+--==================================================
+-- HOME PAGE
+--==================================================
+
+section(homePage, "Welcome to Aexo Hub 🩵")
+
+local homePanel = panel(
+    homePage,
+    UDim2.new(1, 0, 0, 112),
+    UDim2.new()
+)
+homePanel.BackgroundColor3 = COLORS.Panel
+
+label(
+    homePanel,
+    "Your icy-blue control center.",
+    UDim2.new(1, -24, 0, 28),
+    UDim2.fromOffset(12, 10),
+    17,
+    COLORS.BlueLight
+).Font = Enum.Font.GothamBold
+
+label(
+    homePanel,
+    "Use the sidebar to explore movement, visuals, and interface settings.",
+    UDim2.new(1, -24, 0, 52),
+    UDim2.fromOffset(12, 43),
+    12,
+    COLORS.Muted
+)
+
+local homeDiscord = button(
+    homePage,
+    "💬  Discord / Invite",
+    UDim2.new(1, 0, 0, 43),
+    UDim2.new()
+)
+
+homeDiscord.MouseButton1Click:Connect(function()
+    discordBox.Visible = true
+    keyPage.Visible = false
+
+    -- Roblox does not provide a universal clipboard API to LocalScripts.
+    notify("Invite: " .. DISCORD_INVITE, "Discord")
+end)
+
+section(homePage, "About")
+
+local homeAbout = panel(
+    homePage,
+    UDim2.new(1, 0, 0, 65),
+    UDim2.new()
+)
+
+label(
+    homeAbout,
+    "Aexo Hub is made to keep mobile optimization easy and simple",
+    UDim2.new(1, -24, 1, -12),
+    UDim2.fromOffset(12, 6),
+    13,
+    COLORS.White
+)
+
+--==================================================
+-- MOVEMENT PAGE
+--==================================================
+
+section(movementPage, "Movement Controls")
+
+local speedSlider
+local jumpSlider
+local spinSlider
+
+speedSlider = makeSlider(
+    movementPage,
+    "Walk Speed",
+    1,
+    100,
+    settings.Speed,
+    function(value)
+        settings.Speed = value
+        if humanoid and not settings.FreezeMovement then
+            humanoid.WalkSpeed = value
+        end
+    end
+)
+
+makeToggle(
+    movementPage,
+    "⭐️ Constant Change",
+    false,
+    function(value)
+        settings.ConstantChange = value
+        notify(value and "Speed will be reapplied." or "Constant speed disabled.")
+    end,
+    true
+)
+
+jumpSlider = makeSlider(
+    movementPage,
+    "Jump Power",
+    1,
+    100,
+    settings.Jump,
+    function(value)
+        settings.Jump = value
+        settings.JumpBoost = true
+
+        if humanoid then
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = value
+        end
+    end
+)
+
+makeToggle(
+    movementPage,
+    "Jump Boost",
+    false,
+    function(value)
+        settings.JumpBoost = value
+
+        if humanoid then
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = value and settings.Jump or 50
+        end
+    end
+)
+
+makeToggle(
+    movementPage,
+    "Noclip",
+    false,
+    function(value)
+        settings.Noclip = value
+        notify(value and "Noclip enabled." or "Noclip disabled.")
+    end
+)
+
+makeToggle(
+    movementPage,
+    "Infinite Jump",
+    false,
+    function(value)
+        settings.Infjump = value
+        notify(value and "Infinite jump enabled." or "Infinite jump disabled.")
+    end
+)
+
+makeToggle(
+    movementPage,
+    "Sprint",
+    false,
+    function(value)
+        settings.Sprint = value
+
+        if humanoid and not settings.FreezeMovement then
+            humanoid.WalkSpeed = value and math.max(settings.Speed, 28) or settings.Speed
+        end
+    end
+)
+
+makeToggle(
+    movementPage,
+    "Freeze Movement",
+    false,
+    function(value)
+        settings.FreezeMovement = value
+
+        if humanoid then
+            humanoid.WalkSpeed = value and 0 or settings.Speed
+            humanoid.JumpPower = value and 0 or settings.Jump
+        end
+    end
+)
+
+makeToggle(
+    movementPage,
+    "⭐️ Air Control",
+    false,
+    function(value)
+        settings.AirControl = value
+        notify(value and "Air control enabled." or "Air control disabled.")
+    end,
+    true
+)
+
+makeToggle(
+    movementPage,
+    "⭐️ Spin",
+    false,
+    function(value)
+        settings.Spin = value
+        notify(value and "Spin enabled." or "Spin disabled.")
+    end,
+    true
+)
+
+spinSlider = makeSlider(
+    movementPage,
+    "⭐️ Spin Speed",
+    1,
+    10,
+    settings.SpinSpeed,
+    function(value)
+        settings.SpinSpeed = value
+    end,
+    true
+)
+
+makeSelector(
+    movementPage,
+    "⭐️ Spin Direction",
+    {"Clockwise", "Counterclockwise"},
+    "Clockwise",
+    function(value)
+        settings.SpinDirection = value
+    end,
+    true
+)
+
+makeSelector(
+    movementPage,
+    "⭐️ Movement Preset",
+    {"Default", "Fast", "Very Fast", "Low Gravity"},
+    "Default",
+    function(value)
+        if value == "Default" then
+            settings.Speed = 16
+            settings.Jump = 50
+        elseif value == "Fast" then
+            settings.Speed = 24
+            settings.Jump = 55
+        elseif value == "Very Fast" then
+            settings.Speed = 40
+            settings.Jump = 70
+        elseif value == "Low Gravity" then
+            settings.Speed = 20
+            settings.Jump = 60
+        end
+
+        speedSlider.Set(settings.Speed, false)
+        jumpSlider.Set(settings.Jump, false)
+
+        if humanoid then
+            humanoid.WalkSpeed = settings.Speed
+            humanoid.JumpPower = settings.Jump
+        end
+
+        notify(value .. " preset selected.")
+    end,
+    true
+)
+
+local resetMovementButton = button(
+    movementPage,
+    "↺  Reset Movement",
+    UDim2.new(1, 0, 0, 42),
+    UDim2.new()
+)
+
+resetMovementButton.MouseButton1Click:Connect(function()
+    settings.Speed = 16
+    settings.Jump = 50
+    settings.Sprint = false
+    settings.FreezeMovement = false
+    settings.JumpBoost = false
+    settings.ConstantChange = false
+    settings.Noclip = false
+    settings.Infjump = false
+    settings.Spin = false
+    settings.AirControl = false
+
+    speedSlider.Set(16, false)
+    jumpSlider.Set(50, false)
+
+    if humanoid then
+        humanoid.WalkSpeed = 16
+        humanoid.JumpPower = 50
+    end
+
+    notify("Movement settings reset.")
+end)
+
+--==================================================
+-- VISUALS PAGE
+--==================================================
+
+section(visualsPage, "Player Highlights")
+
+local function removeHighlight(player)
+    local existing = highlights[player]
+
+    if existing then
+        existing:Destroy()
+        highlights[player] = nil
+    end
+end
+
+local function applyHighlight(player)
+    if player == Player then return end
+
+    local targetCharacter = player.Character
+    if not targetCharacter then return end
+
+    if not settings.Highlighter then
+        removeHighlight(player)
+        return
+    end
+
+    local color = HIGHLIGHT_COLORS[settings.HighlighterColor]
+        or HIGHLIGHT_COLORS.Blue
+
+    local highlight = highlights[player]
+
+    if not highlight or not highlight.Parent then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "AexoPlayerHighlight"
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = targetCharacter
+        highlights[player] = highlight
+    end
+
+    highlight.Adornee = targetCharacter
+    highlight.OutlineColor = color
+    highlight.FillColor = color
+    highlight.OutlineTransparency = 0.05
+    highlight.FillTransparency = 0.72
+    highlight.Enabled = true
+end
+
+local function refreshHighlights()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Player then
+            applyHighlight(player)
+        end
+    end
+end
+
+makeToggle(
+    visualsPage,
+    "Highlighter",
+    false,
+    function(value)
+        settings.Highlighter = value
+
+        if value then
+            refreshHighlights()
+        else
+            for player in pairs(highlights) do
+                removeHighlight(player)
+            end
+        end
+    end
+)
+
+makeSelector(
+    visualsPage,
+    "Highlight Color",
+    {"Black", "White", "Grey", "Red", "Green", "Blue", "Yellow"},
+    "Blue",
+    function(value)
+        if not isPremium and (
+            value == "Green" or value == "Blue" or value == "Yellow"
+        ) then
+            -- This is a secondary guard. The selector itself is gated below
+            -- for Premium users, so this branch should not normally run.
+            settings.HighlighterColor = "Red"
+            notify("That color requires Premium.")
+            return
+        end
+
+        settings.HighlighterColor = value
+        refreshHighlights()
+    end
+)
+
+makeToggle(
+    visualsPage,
+    "⭐️ Constantly Turn On",
+    false,
+    function(value)
+        settings.ConstantHighlighter = value
+        notify(value and "Auto-highlight enabled." or "Auto-highlight disabled.")
+    end,
+    true
+)
+
+--==================================================
+-- UI SETTINGS PAGE
+--==================================================
+
+section(uiPage, "Interface Settings")
+
+makeToggle(
+    uiPage,
+    "⭐️ Constant UI",
+    false,
+    function(value)
+        settings.ConstantUI = value
+        notify(value and "Floating reopen button will stay available." or "Constant UI disabled.")
+    end,
+    true
+)
+
+makeSlider(
+    uiPage,
+    "Mobile Button Size",
+    70,
+    140,
+    100,
+    function(value)
+        settings.MobileButtonSize = value / 100
+
+        local touchGui = PlayerGui:FindFirstChild("TouchGui")
+        local controls = touchGui and touchGui:FindFirstChild("TouchControlFrame")
+
+        if controls then
+            local jumpButton = controls:FindFirstChild("JumpButton", true)
+
+            if jumpButton and jumpButton:IsA("ImageButton") then
+                jumpButton.Size = UDim2.fromOffset(value, value)
+            end
+        end
+    end
+)
+
+makeSelector(
+    uiPage,
+    "Mobile Button Side",
+    {"Right", "Left"},
+    "Right",
+    function(value)
+        settings.MobileButtonPosition = value
+
+        local touchGui = PlayerGui:FindFirstChild("TouchGui")
+        local controls = touchGui and touchGui:FindFirstChild("TouchControlFrame")
+
+        if controls then
+            local jumpButton = controls:FindFirstChild("JumpButton", true)
+
+            if jumpButton and jumpButton:IsA("ImageButton") then
+                jumpButton.AnchorPoint = Vector2.new(value == "Left" and 0 or 1, 1)
+
+                jumpButton.Position = value == "Left"
+                    and UDim2.new(0, 30, 1, -120)
+                    or UDim2.new(1, -30, 1, -120)
+            end
+        end
+    end
+)
+
+local deleteAllButton = button(
+    uiPage,
+    "Delete All / Reset Hub",
+    UDim2.new(1, 0, 0, 43),
+    UDim2.new()
+)
+deleteAllButton.BackgroundColor3 = COLORS.Red
+deleteAllButton.TextColor3 = COLORS.Background
+
+deleteAllButton.MouseButton1Click:Connect(function()
+    -- Reset active features and return to the default UI state.
+    settings.Speed = 16
+    settings.Jump = 50
+    settings.JumpBoost = false
+    settings.ConstantChange = false
+    settings.Sprint = false
+    settings.Noclip = false
+    settings.Infjump = false
+    settings.Spin = false
+    settings.SpinSpeed = 3
+    settings.SpinDirection = "Clockwise"
+    settings.AirControl = false
+    settings.FreezeMovement = false
+
+    settings.Highlighter = false
+    settings.HighlighterColor = "Blue"
+    settings.ConstantHighlighter = false
+    settings.ConstantUI = false
+
+    for player in pairs(highlights) do
+        removeHighlight(player)
+    end
+
+    for part, original in pairs(originalCollisions) do
+        if part and part.Parent then
+            part.CanCollide = original
+        end
+    end
+    table.clear(originalCollisions)
+
+    if humanoid then
+        humanoid.WalkSpeed = 16
+        humanoid.JumpPower = 50
+    end
+
+    window.Visible = false
+    mainHidden = true
+    floatingButton.Visible = true
+
+    notify("Active settings reset. The hub is now hidden.")
+end)
+
+local resetButton = button(
+    uiPage,
+    "⭐️ Reset Settings (Double Click)",
+    UDim2.new(1, 0, 0, 43),
+    UDim2.new()
+)
+
+local lastResetClick = 0
+
+resetButton.MouseButton1Click:Connect(function()
+    if not isPremium then
+        premiumNotice()
+        return
+    end
+
+    local now = os.clock()
+
+    if now - lastResetClick > 1.5 then
+        lastResetClick = now
+        resetButton.Text = "Click again to confirm!"
+        notify("Click Reset again within 1.5 seconds.")
+        return
+    end
+
+    lastResetClick = 0
+    resetButton.Text = "⭐️ Reset Settings (Double Click)"
+
+    settings.Speed = 16
+    settings.Jump = 50
+    settings.JumpBoost = false
+    settings.ConstantChange = false
+    settings.Sprint = false
+    settings.Noclip = false
+    settings.Infjump = false
+    settings.Spin = false
+    settings.SpinSpeed = 3
+    settings.SpinDirection = "Clockwise"
+    settings.AirControl = false
+    settings.FreezeMovement = false
+    settings.Highlighter = false
+    settings.ConstantHighlighter = false
+    settings.ConstantUI = false
+
+    for player in pairs(highlights) do
+        removeHighlight(player)
+    end
+
+    if humanoid then
+        humanoid.WalkSpeed = 16
+        humanoid.JumpPower = 50
+    end
+
+    notify("Premium reset complete.")
+end)
+
+--==================================================
+-- ABOUT PAGE
+--==================================================
+
+section(aboutPage, "About Aexo Hub")
+
+local aboutPanel = panel(
+    aboutPage,
+    UDim2.new(1, 0, 0, 150),
+    UDim2.new()
+)
+
+label(
+    aboutPanel,
+    "🩵  aexo Hub",
+    UDim2.new(1, -24, 0, 30),
+    UDim2.fromOffset(12, 12),
+    19,
+    COLORS.BlueLight
+).Font = Enum.Font.GothamBold
+
+label(
+    aboutPanel,
+    "A customizable interface for your own Roblox experience.\n\nFree and Premium options are shown in the tabs. Premium checks in this demo are client-side only.",
+    UDim2.new(1, -24, 0, 95),
+    UDim2.fromOffset(12, 47),
+    12,
+    COLORS.Muted
+)
+
+local aboutDiscord = button(
+    aboutPage,
+    "💬  Discord Invite",
+    UDim2.new(1, 0, 0, 42),
+    UDim2.new()
+)
+
+aboutDiscord.MouseButton1Click:Connect(function()
+    notify(DISCORD_INVITE, "Discord Invite")
+end)
+
+--==================================================
+-- CHARACTER SETUP
+--==================================================
+
+local function saveCharacter(characterModel)
+    character = characterModel
+    humanoid = characterModel:WaitForChild("Humanoid")
+    rootPart = characterModel:WaitForChild("HumanoidRootPart")
+
+    originalMovement.WalkSpeed = humanoid.WalkSpeed
+    originalMovement.JumpPower = humanoid.JumpPower
+
+    if settings.FreezeMovement then
+        humanoid.WalkSpeed = 0
+        humanoid.JumpPower = 0
+    else
+        humanoid.WalkSpeed = settings.Speed
+        humanoid.JumpPower = settings.Jump
+    end
+
+    task.wait(0.2)
+
+    if settings.Highlighter then
+        refreshHighlights()
+    end
+end
+
+if Player.Character then
+    task.spawn(saveCharacter, Player.Character)
+end
+
+addConnection(Player.CharacterAdded:Connect(function(newCharacter)
+    task.spawn(saveCharacter, newCharacter)
+end))
+
+--==================================================
+-- INFINITE JUMP
+--==================================================
+
+addConnection(UIS.JumpRequest:Connect(function()
+    if not settings.Infjump then return end
+    if not humanoid or humanoid.Health <= 0 then return end
+
+    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+end))
+
+--==================================================
+-- PLAYER HIGHLIGHT CONNECTIONS
+--==================================================
+
+local function watchPlayer(player)
+    if player == Player then return end
+
+    addConnection(player.CharacterAdded:Connect(function()
+        task.wait(0.25)
+
+        if settings.Highlighter then
+            applyHighlight(player)
+        end
+    end))
+
+    if player.Character and settings.Highlighter then
+        applyHighlight(player)
+    end
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+    watchPlayer(player)
+end
+
+addConnection(Players.PlayerAdded:Connect(watchPlayer))
+
+addConnection(Players.PlayerRemoving:Connect(function(player)
+    removeHighlight(player)
+end))
+
+--==================================================
+-- MOVEMENT LOOP
+--==================================================
+
+local lastSpinTime = os.clock()
+
+addConnection(RunService.Stepped:Connect(function()
+    if not character or not character.Parent then return end
+    if not humanoid or humanoid.Health <= 0 then return end
+
+    -- Reapply selected speed.
+    if settings.ConstantChange and not settings.FreezeMovement then
+        humanoid.WalkSpeed = settings.Speed
+    elseif settings.Sprint and not settings.FreezeMovement then
+        humanoid.WalkSpeed = math.max(settings.Speed, 28)
+    end
+
+    if settings.FreezeMovement then
+        humanoid.WalkSpeed = 0
+        humanoid.JumpPower = 0
+    elseif settings.JumpBoost then
+        humanoid.JumpPower = settings.Jump
+    end
+
+    -- Noclip: disable collisions on character parts while enabled.
+    -- This is a basic local implementation; it may affect floor collisions.
+    if settings.Noclip then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if originalCollisions[part] == nil then
+                    originalCollisions[part] = part.CanCollide
+                end
+
+                part.CanCollide = false
+            end
+        end
+    else
+        for part, original in pairs(originalCollisions) do
+            if part and part.Parent then
+                part.CanCollide = original
+            end
+
+            originalCollisions[part] = nil
+        end
+    end
+
+    -- Basic air control: preserve vertical velocity while controlling
+    -- horizontal movement during airborne states.
+    if settings.AirControl and rootPart then
+        local state = humanoid:GetState()
+
+        if state == Enum.HumanoidStateType.Freefall
+            or state == Enum.HumanoidStateType.Jumping then
+
+            local moveDirection = humanoid.MoveDirection
+            local currentVelocity = rootPart.AssemblyLinearVelocity
+
+            rootPart.AssemblyLinearVelocity = Vector3.new(
+                moveDirection.X * math.max(settings.Speed, 16),
+                currentVelocity.Y,
+                moveDirection.Z * math.max(settings.Speed, 16)
+            )
+        end
+    end
+
+    -- Spin around the vertical axis.
+    if settings.Spin and rootPart and not settings.FreezeMovement then
+        local direction = settings.SpinDirection == "Clockwise" and 1 or -1
+        local deltaTime = math.min(os.clock() - lastSpinTime, 0.1)
+
+        rootPart.CFrame = rootPart.CFrame
+            * CFrame.Angles(0, math.rad(settings.SpinSpeed * 45 * direction) * deltaTime, 0)
+    end
+
+    lastSpinTime = os.clock()
+end))
+
+--==================================================
+-- VISUALS UPDATE LOOP
+--==================================================
+
+local highlightTimer = 0
+
+addConnection(RunService.Heartbeat:Connect(function(deltaTime)
+    highlightTimer += deltaTime
+
+    if settings.ConstantHighlighter and settings.Highlighter then
+        if highlightTimer >= 0.5 then
+            highlightTimer = 0
+            refreshHighlights()
+        end
+    end
+
+    -- Keep the floating reopen button available when the main UI is hidden.
+    if settings.ConstantUI and unlocked then
+        if mainHidden then
+            floatingButton.Visible = true
+        end
+    end
+end))
+
+--==================================================
+-- FPS / PING DISPLAY
+--==================================================
+
+local frameCounter = 0
+local fpsElapsed = 0
+
+addConnection(RunService.RenderStepped:Connect(function(deltaTime)
+    frameCounter += 1
+    fpsElapsed += deltaTime
+
+    if fpsElapsed >= 1 then
+        fpsLabel.Text = "FPS: " .. tostring(frameCounter)
+
+        frameCounter = 0
+        fpsElapsed = 0
+
+        local success, ping = pcall(function()
+            return Player:GetNetworkPing() * 1000
+        end)
+
+        if success then
+            pingLabel.Text = "Ping: " .. tostring(math.floor(ping + 0.5)) .. "ms"
+        end
+    end
+end))
+
+--==================================================
+-- INITIAL STATE
+--==================================================
+
+showPage("Home")
+
+keyPage.Visible = true
+window.Visible = false
+floatingButton.Visible = false
+
+notify("Welcome! Enter your key to continue.")
+
+print("🩵 Aexo Hub loaded successfully.")
